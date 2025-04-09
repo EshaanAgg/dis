@@ -35,3 +35,5 @@
 2. Define a basic `Node` type that will represent a server in the cluster. Embed the `rpc.UnimplementedNodeServer` type in the `Node` struct to implement the RPC methods.
 3. Added the initial methods to connect to all the peers in the cluster, and added a `main`/`cmd` package so that we can start the cluster via CLI.
 4. Implemented a simple logger class that prints the logs to the STDOUT, but with node information and custom colours for better visibility. 
+
+Commit: [`282770c3b97d8c681d3244ec56f80fde39d6f56a`](https://github.com/EshaanAgg/dis/commit/282770c3b97d8c681d3244ec56f80fde39d6f56a)
