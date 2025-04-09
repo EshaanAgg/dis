@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+option go_package = "github.com/EshaanAgg/dis/raft/rpc";
+
+package rpc;
+
+service Node {
+    rpc AppendEntries(AppendEntryInput) returns (AppendEntryOutput) {}
+    rpc RequestVote(RequestVoteInput) returns (RequestVoteOutput) {}
+}
+
+message Success {
+    bool ok = 1;
+}
+
+message AppendEntryInput {
+    int64 term = 1;
+    int64 leaderId = 2;
+    int64 prevLogIndex = 3;
+    int64 prevLogTerm = 4;
+    repeated LogEntry entries = 5;
+    int64 leaderCommit = 6;
+}
+
+message AppendEntryOutput {
+    int64 term = 1;
+    bool success = 2;
+}
+
+message LogEntry {
+    string command = 1;
+}
+
+message RequestVoteInput {
+    int64 term = 1;
+    int64 candidateId = 2;
+    int64 lastLogIndex = 3;
+    int64 lastLogTerm = 4;
+}
+
+message RequestVoteOutput {
+    int64 term = 1;
+    bool voteGranted = 2;
+}
+
