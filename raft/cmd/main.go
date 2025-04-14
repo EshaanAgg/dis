@@ -47,7 +47,7 @@ func main() {
 }
 
 func startNode(nodeID, port int, peers []string) {
-	rn := pkg.NewRaftNode(int64(nodeID), peers)
+	rn := pkg.NewRaftNode(int64(nodeID), peers, pkg.NewConfig())
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {

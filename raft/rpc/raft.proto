@@ -34,7 +34,7 @@ message LogEntry {
 message RequestVoteInput {
     int64 term = 1;
     int64 candidateId = 2;
-    int64 lastLogIndex = 3;
+    int64 logLength = 3;
     int64 lastLogTerm = 4;
 }
 
