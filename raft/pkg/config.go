@@ -25,3 +25,9 @@ func (c *Config) GetElectionTimeout() time.Duration {
 	electionRange := c.MaximumElectionTimeout - c.MinimumElectionTimeout
 	return c.MinimumElectionTimeout + time.Duration(rand.Int63n(int64(electionRange)))
 }
+
+// Updates the next election time for the node
+// The lock on the node must be held by the caller
+func (rn *RaftNode) updateElectionTime() {
+	rn.nextElectionTime = time.Now().Add(rn.cfg.GetElectionTimeout())
+}

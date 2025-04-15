@@ -37,7 +37,7 @@ func (rn *RaftNode) conductElection() {
 	rn.currentTerm++
 	rn.votedFor = &rn.NodeID
 	rn.role = Candidate
-	rn.nextElectionTime = time.Now().Add(rn.cfg.GetElectionTimeout())
+	rn.updateElectionTime()
 
 	// Initialize the voting procedure
 	voteMutex := sync.Mutex{}

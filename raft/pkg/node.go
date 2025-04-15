@@ -44,12 +44,11 @@ func NewRaftNode(nodeID int64, peers []Peer, cfg *Config) *RaftNode {
 	l.Printf("Connected to [%d] peers", len(clients))
 
 	rn := &RaftNode{
-		NodeID:           nodeID,
-		l:                *l,
-		clients:          clients,
-		mu:               sync.Mutex{},
-		cfg:              cfg,
-		nextElectionTime: time.Now().Add(cfg.GetElectionTimeout()),
+		NodeID:  nodeID,
+		l:       *l,
+		clients: clients,
+		mu:      sync.Mutex{},
+		cfg:     cfg,
 
 		// Persistent state
 		// TODO: Inialize properly from stable storage
@@ -64,6 +63,7 @@ func NewRaftNode(nodeID int64, peers []Peer, cfg *Config) *RaftNode {
 	}
 
 	// Start a goroutine to periodically check if an election needs to be conducted
+	rn.updateElectionTime()
 	go rn.checkElection()
 
 	return rn

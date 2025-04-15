@@ -37,3 +37,27 @@ func (rn *RaftNode) RequestVote(ctx context.Context, args *rpc.RequestVoteInput)
 		}, nil
 	}
 }
+
+func (rn *RaftNode) AppendEntries(ctx context.Context, args *rpc.AppendEntryInput) (*rpc.AppendEntryOutput, error) {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+
+	// If from a previous term, deny the request
+	if args.Term < rn.currentTerm {
+		return &rpc.AppendEntryOutput{
+			Term:    rn.currentTerm,
+			Success: false,
+		}, nil
+	}
+
+	// Become a follower since the leader is known and update the timeout
+	rn.role = Follower
+	rn.currentTerm = args.Term
+	rn.updateElectionTime()
+
+	// TODO: Add actual logic of appending the log entries
+	return &rpc.AppendEntryOutput{
+		Term:    rn.currentTerm,
+		Success: true,
+	}, nil
+}
