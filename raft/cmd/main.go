@@ -2,13 +2,8 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"log"
-	"net"
 
-	"github.com/EshaanAgg/dis/raft/pkg"
-	"github.com/EshaanAgg/dis/raft/rpc"
-	"google.golang.org/grpc"
+	"github.com/EshaanAgg/dis/raft"
 )
 
 type Config struct {
@@ -17,51 +12,13 @@ type Config struct {
 }
 
 func main() {
-	var config Config
+	var config raft.Config
 	flag.IntVar(&config.StartPort, "start-port", 5000, "Starting port for the nodes")
 	flag.IntVar(&config.NumberOfNodes, "number-of-nodes", 3, "Number of nodes in the cluster")
 	flag.Parse()
 
-	if config.NumberOfNodes <= 0 {
-		log.Fatalf("Number of nodes must be greater than 0")
-	}
-	if config.StartPort <= 0 {
-		log.Fatalf("Starting port must be greater than 0")
-	}
+	raft.NewRaft(&config)
 
-	for nodeID := range config.NumberOfNodes {
-		port := config.StartPort + nodeID
-
-		peers := make([]pkg.Peer, 0, config.NumberOfNodes-1)
-		for i := range config.NumberOfNodes {
-			if i == nodeID {
-				continue
-			}
-			peers = append(peers, pkg.Peer{
-				Addr: fmt.Sprintf("localhost:%d", config.StartPort+i),
-				ID:   int64(i),
-			})
-		}
-		go startNode(nodeID, port, peers)
-	}
-
-	// Keep the main function running
+	// Keep the main loop running
 	select {}
-}
-
-func startNode(nodeID, port int, peers []pkg.Peer) {
-	rn := pkg.NewRaftNode(int64(nodeID), peers, pkg.NewConfig())
-
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		log.Fatalf("Failed to listen on port %d: %v", port, err)
-	}
-
-	grpcServer := grpc.NewServer()
-	rpc.RegisterNodeServer(grpcServer, rn)
-
-	log.Printf("Starting RAFT node %d on port %d", nodeID, port)
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve gRPC: %v", err)
-	}
 }
