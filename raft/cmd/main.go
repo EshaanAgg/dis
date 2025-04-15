@@ -32,12 +32,15 @@ func main() {
 	for nodeID := range config.NumberOfNodes {
 		port := config.StartPort + nodeID
 
-		peers := make([]string, 0, config.NumberOfNodes-1)
+		peers := make([]pkg.Peer, 0, config.NumberOfNodes-1)
 		for i := range config.NumberOfNodes {
 			if i == nodeID {
 				continue
 			}
-			peers = append(peers, fmt.Sprintf("localhost:%d", config.StartPort+i))
+			peers = append(peers, pkg.Peer{
+				Addr: fmt.Sprintf("localhost:%d", config.StartPort+i),
+				ID:   int64(i),
+			})
 		}
 		go startNode(nodeID, port, peers)
 	}
@@ -46,7 +49,7 @@ func main() {
 	select {}
 }
 
-func startNode(nodeID, port int, peers []string) {
+func startNode(nodeID, port int, peers []pkg.Peer) {
 	rn := pkg.NewRaftNode(int64(nodeID), peers, pkg.NewConfig())
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))

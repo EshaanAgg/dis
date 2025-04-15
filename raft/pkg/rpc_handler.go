@@ -18,10 +18,7 @@ func (rn *RaftNode) RequestVote(ctx context.Context, args *rpc.RequestVoteInput)
 	}
 
 	// Check that the candidate's log is at least as up-to-date as the receiver's log
-	lastTerm := int64(0)
-	if len(rn.log) > 0 {
-		lastTerm = rn.log[len(rn.log)-1].Term
-	}
+	lastTerm := rn.getLastLogTerm()
 	logOk := (args.LastLogTerm > lastTerm) || (args.LastLogTerm == lastTerm && args.LogLength >= int64(len(rn.log)))
 
 	// Check the term, votedFor, and logOk conditions to finally grant the vote

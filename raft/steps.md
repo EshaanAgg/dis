@@ -11,3 +11,9 @@ Commit: [`282770c3b97d8c681d3244ec56f80fde39d6f56a`](https://github.com/EshaanAg
 - Added a `Config` struct to the package that can be used to configure the timeouts. This should probably be helpful when we want to test the implementation. 
 - Implemented the `RequestVote` RPC method, as it is the first step in the RAFT algorithm. Implemented the logic for term validation, log comparison, and the voting process.
 - Made minor refactors to the variables, as well as the documentation.
+
+Commit: [`16fa3c3fd6d05016a3809c06c87ac5dc41042f11`](https://github.com/EshaanAgg/dis/tree/16fa3c3fd6d05016a3809c06c87ac5dc41042f11/raft)
+
+- Implemented the logic to start elections and request for votes using the `RequestVote` RPC
+- Added go routine to kick of elections at random delays for repeated elections
+- Implemented the logic to ensure that the leader is recognised by all the other clients based on the `AppendEntries` RPC
