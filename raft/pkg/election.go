@@ -12,14 +12,19 @@ import (
 func (rn *RaftNode) checkElection() {
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
+	ctx, cancel := context.WithCancel(context.Background())
+
+	rn.mu.Lock()
+	rn.stopElectionCancel = &cancel
+	rn.mu.Unlock()
 
 	for {
 		select {
-		case <-rn.stopElectionCh:
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			rn.mu.Lock()
-			if !rn.disconnected && rn.role == Follower && time.Now().After(rn.nextElectionTime) {
+			if rn.role == Follower && time.Now().After(rn.nextElectionTime) {
 				rn.mu.Unlock()
 				rn.conductElection()
 			} else {
@@ -37,14 +42,15 @@ func (rn *RaftNode) conductElection() {
 		rn.mu.Unlock()
 		return
 	}
-
 	rn.l.Debug("Starting election for term %d", rn.currentTerm+1)
 
 	// Transition to candidate state
-	rn.currentTerm++
+	rn.currentTerm += 1
 	rn.votedFor = &rn.NodeID
 	rn.role = Candidate
-	rn.updateElectionTime()
+
+	electionTerm := rn.currentTerm
+	nodesCnt := len(rn.clients) + 1
 
 	// Initialize the voting procedure
 	voteMutex := sync.Mutex{}
@@ -67,8 +73,7 @@ func (rn *RaftNode) conductElection() {
 			if err != nil {
 				rn.l.Debug("Failed to connect Node %d via RequestVote RPC: (%v)", nodeId, err)
 			} else {
-				// Update the current term from the response
-				// and state
+				// Update the current term from the response and state
 				rn.mu.Lock()
 				if rn.currentTerm != reply.Term {
 					rn.currentTerm = reply.Term
@@ -85,30 +90,29 @@ func (rn *RaftNode) conductElection() {
 			totalCount++
 			cond.Broadcast()
 
-		}(peer.ID, rn.currentTerm, logLen, logTerm, &peer)
+		}(peer.ID, electionTerm, logLen, logTerm, &peer)
 	}
 
 	rn.mu.Unlock()
 
 	voteMutex.Lock()
 	defer voteMutex.Unlock()
-
-	for 2*voteCount <= len(rn.clients) && totalCount != len(rn.clients) {
+	for 2*voteCount <= nodesCnt && totalCount != nodesCnt {
 		cond.Wait()
 	}
 
 	rn.mu.Lock()
-
-	if 2*voteCount > len(rn.clients) && rn.role == Candidate {
-		rn.l.Info("Became the leader: Recieved %d/%d for term %d", voteCount, totalCount, rn.currentTerm)
+	if 2*voteCount > nodesCnt && rn.role == Candidate {
+		rn.l.Info("Became the leader: Recieved %d/%d for term %d", voteCount, totalCount, electionTerm)
 		rn.role = Leader
-		// Send AppendEntries messages to all clients to establish myself as leader
-		rn.sendAppendEntriesMesssage()
 		go rn.leaderHeartbeat()
 	} else {
-		rn.l.Info("Lost the election: Recieved %d/%d for term %d", voteCount, totalCount, rn.currentTerm)
+		rn.l.Info("Lost the election: Recieved %d/%d for term %d", voteCount, totalCount, electionTerm)
 		rn.role = Follower
 	}
+
+	// Update the election time only at the end when the election process has completed
+	rn.updateElectionTime()
 
 	rn.mu.Unlock()
 }
@@ -118,13 +122,18 @@ func (rn *RaftNode) leaderHeartbeat() {
 	ticker := time.NewTicker(rn.cfg.HeartbeatTimeout)
 	defer ticker.Stop()
 
+	rn.mu.Lock()
+	ctx, cancel := context.WithCancel(context.Background())
+	rn.stopHeartbeatCancel = &cancel
+	rn.mu.Unlock()
+
 	for {
 		select {
-		case <-rn.stopHeartbeatCh:
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			rn.mu.Lock()
-			if rn.role == Leader && !rn.disconnected {
+			if rn.role == Leader {
 				rn.sendAppendEntriesMesssage()
 			}
 			rn.mu.Unlock()
@@ -132,18 +141,17 @@ func (rn *RaftNode) leaderHeartbeat() {
 	}
 }
 
-// Step down as leader and become a follower.
+// Step down as leader/candidate and become a follower.
 // The caller must hold the lock on the mutex before calling this function.
-func (rn *RaftNode) stepDownAsLeader() {
+func (rn *RaftNode) revertToFollower() {
 	if rn.role == Leader {
-		rn.role = Follower
-		rn.votedFor = nil
-		rn.updateElectionTime()
-
-		// Stop the heartbeat goroutine
-		close(rn.stopHeartbeatCh)
-		rn.stopHeartbeatCh = make(chan any)
-
 		rn.l.Info("Stepped down as leader")
+		if rn.stopHeartbeatCancel != nil {
+			(*rn.stopHeartbeatCancel)()
+		}
 	}
+
+	rn.votedFor = nil
+	rn.role = Follower
+	rn.updateElectionTime()
 }

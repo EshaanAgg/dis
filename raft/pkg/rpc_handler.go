@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/EshaanAgg/dis/raft/rpc"
 )
@@ -11,15 +10,10 @@ func (rn *RaftNode) RequestVote(ctx context.Context, args *rpc.RequestVoteInput)
 	rn.mu.Lock()
 	defer rn.mu.Unlock()
 
-	// Manually disconnect the node from the network
-	if rn.disconnected {
-		return nil, fmt.Errorf("node %d is disconnected from the network", rn.NodeID)
-	}
-
 	// If the message is from a newer term, update the current term and reset the votedFor field
 	if args.Term > rn.currentTerm {
 		rn.currentTerm = args.Term
-		rn.stepDownAsLeader()
+		rn.revertToFollower()
 	}
 
 	// Check that the candidate's log is at least as up-to-date as the receiver's log
@@ -46,11 +40,6 @@ func (rn *RaftNode) RequestVote(ctx context.Context, args *rpc.RequestVoteInput)
 func (rn *RaftNode) AppendEntries(ctx context.Context, args *rpc.AppendEntryInput) (*rpc.AppendEntryOutput, error) {
 	rn.mu.Lock()
 	defer rn.mu.Unlock()
-
-	// Manually disconnect the node from the network
-	if rn.disconnected {
-		return nil, fmt.Errorf("node %d is disconnected from the network", rn.NodeID)
-	}
 
 	// If from a previous term, deny the request
 	if args.Term < rn.currentTerm {

@@ -3,7 +3,6 @@ package pkg
 import (
 	"sync"
 
-	"github.com/EshaanAgg/dis/raft/pkg/logger"
 	"github.com/EshaanAgg/dis/raft/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -22,14 +21,14 @@ type Peer struct {
 	Addr string
 }
 
-func getPeerClients(peers []Peer, l *logger.Logger) []PeerClient {
+func (rn *RaftNode) setPeerClients() {
 	// This function connects to all peers in the cluster and initializes the gRPC clients for communication
 	// and returns a slice of PeerClient structs.
 	clients := make([]PeerClient, 0)
 	mtx := sync.Mutex{}
 	wg := sync.WaitGroup{}
 
-	for _, peer := range peers {
+	for _, peer := range rn.peers {
 		// Use a goroutine to connect to each peer concurrently
 		wg.Add(1)
 
@@ -39,11 +38,11 @@ func getPeerClients(peers []Peer, l *logger.Logger) []PeerClient {
 			// Create a new gRPC client connection to the peer
 			conn, err := grpc.NewClient(peer.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
-				l.Error("Failed to connect to peer '%s': %v", peer.Addr, err)
+				rn.l.Error("Failed to connect to peer '%s': %v", peer.Addr, err)
 				return
 			}
 			client := rpc.NewNodeClient(conn)
-			l.Info("Connected to peer '%s'", peer.Addr)
+			rn.l.Info("Connected to peer '%s'", peer.Addr)
 
 			mtx.Lock() // Lock the mutex to safely append to the clients slice
 			clients = append(clients, PeerClient{
@@ -57,5 +56,5 @@ func getPeerClients(peers []Peer, l *logger.Logger) []PeerClient {
 	}
 
 	wg.Wait()
-	return clients
+	rn.clients = clients
 }

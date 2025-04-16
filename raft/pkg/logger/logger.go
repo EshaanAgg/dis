@@ -11,11 +11,11 @@ const (
 	Debug LogLevel = iota
 	Info
 	Error
+	Quiet // To be used to silence all the logs from a node
 )
 
 type Logger struct {
 	indent string
-	color  string
 	level  LogLevel
 }
 
@@ -25,31 +25,23 @@ func NewLogger(indent string, index int64, lvl *LogLevel) *Logger {
 		level = *lvl
 	}
 
-	colorIdx := int(index) % len(allColours)
-	color := allColours[colorIdx]
 	return &Logger{
 		indent: indent,
-		color:  color,
 		level:  level,
 	}
 }
 
-// Printf prints the formatted log with indentation and color
+// Printf prints the formatted log with indentation
 func (l *Logger) printf(format string, lvl LogLevel, args ...any) {
 	if lvl < l.level {
 		return
-	}
-
-	col := colors[l.color]
-	if col == "" {
-		col = colors["reset"]
 	}
 
 	message := fmt.Sprintf(format, args...)
 	lines := strings.Split(message, "\n")
 	for _, line := range lines {
 		if line != "" {
-			fmt.Printf("%s%s%s%s\n", col, l.indent, line, colors["reset"])
+			fmt.Printf("%s%s\n", l.indent, line)
 		}
 	}
 }

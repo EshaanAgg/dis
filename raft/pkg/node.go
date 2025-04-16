@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -14,15 +15,10 @@ type RaftNode struct {
 
 	// Internal variables used for synchronization and communication between nodes
 	mu      sync.Mutex
+	peers   []Peer
 	clients []PeerClient
 	l       logger.Logger
 	cfg     *Config
-
-	// Stores if the node has been disconnected from the network. This would not be
-	// present in an actual implementation, and we would not need to have checks related
-	// to being disconnected in the source code. But we need to have them here, so that
-	// we can simulate network partitions and failures in the tests.
-	disconnected bool
 
 	// Persistent state
 	currentTerm int64
@@ -39,9 +35,9 @@ type RaftNode struct {
 	matchIndex       []int
 	nextElectionTime time.Time
 
-	// Channels for stopping election and heartbeat goroutines
-	stopElectionCh  chan any
-	stopHeartbeatCh chan any
+	// Cancel functions to manage go-routines
+	stopHeartbeatCancel *context.CancelFunc
+	stopElectionCancel  *context.CancelFunc
 
 	rpc.UnimplementedNodeServer
 }
@@ -50,34 +46,41 @@ func NewRaftNode(nodeID int64, peers []Peer, cfg *Config, logLevel logger.LogLev
 	l := logger.NewLogger(fmt.Sprintf("[Node %d] ", nodeID), nodeID, &logLevel)
 	l.Info("Starting Raft node with ID %d", nodeID)
 
-	clients := getPeerClients(peers, l)
-	l.Info("Connected to %d peers", len(clients))
-
 	rn := &RaftNode{
-		NodeID:       nodeID,
-		l:            *l,
-		clients:      clients,
-		mu:           sync.Mutex{},
-		cfg:          cfg,
-		disconnected: false,
-
-		// Persistent state
-		// TODO: Inialize properly from stable storage
-		currentTerm: 0,
-		votedFor:    nil,
-		log:         make([]LogEntry, 0),
-
-		// Transient state
-		role:       Follower,
-		nextIndex:  make([]int, len(clients)),
-		matchIndex: make([]int, len(clients)),
+		NodeID: nodeID,
+		l:      *l,
+		mu:     sync.Mutex{},
+		cfg:    cfg,
 	}
 
-	// Start a goroutine to periodically check if an election needs to be conducted
+	rn.setPeerClients()
+	l.Info("Connected to %d peers", len(rn.clients))
+
+	rn.resetState()
+	return rn
+}
+
+// Initializes the state of the node when it is first starting up after a crash.
+// Responsible for handling loading of state from the stable medium, and kicking off the
+// appropiate election go-routines.
+func (rn *RaftNode) resetState() {
+	// TODO: Inialize properly from stable storage
+	// Persistent state
+	rn.currentTerm = 0
+	rn.votedFor = nil
+	rn.log = make([]LogEntry, 0)
+
+	// Transient state
+	rn.role = Follower
+	rn.nextIndex = make([]int, len(rn.clients))
+	rn.matchIndex = make([]int, len(rn.clients))
+
+	// Cancel fucntions
+	rn.stopElectionCancel = nil
+	rn.stopHeartbeatCancel = nil
+
 	rn.updateElectionTime()
 	go rn.checkElection()
-
-	return rn
 }
 
 // Returns the term of the last log entry, and 0 if there are no logs
@@ -102,9 +105,8 @@ func (rn *RaftNode) Shutdown() {
 	rn.mu.Lock()
 	defer rn.mu.Unlock()
 
-	close(rn.stopElectionCh)
-	close(rn.stopHeartbeatCh)
-	rn.disconnected = true
+	rn.revertToFollower()
+	(*rn.stopElectionCancel)()
 
 	// Close client connections
 	for _, client := range rn.clients {
@@ -114,14 +116,12 @@ func (rn *RaftNode) Shutdown() {
 
 // Sets the disconnected state of the node
 func (rn *RaftNode) SetDisconnected(disconnected bool) {
-	rn.mu.Lock()
-	defer rn.mu.Unlock()
-	rn.disconnected = disconnected
-}
-
-// Returns whether the node is disconnected
-func (rn *RaftNode) IsDisconnected() bool {
-	rn.mu.Lock()
-	defer rn.mu.Unlock()
-	return rn.disconnected
+	if disconnected {
+		rn.Shutdown()
+	} else {
+		for _, client := range rn.clients {
+			client.conn.Connect()
+		}
+		rn.resetState()
+	}
 }

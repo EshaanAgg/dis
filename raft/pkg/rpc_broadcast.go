@@ -27,16 +27,11 @@ func (rn *RaftNode) sendAppendEntriesMesssage() {
 			rn.mu.Lock()
 			defer rn.mu.Unlock()
 
-			// Handle the case the node is disconnected
-			if rn.disconnected {
-				return
-			}
-
 			if rn.currentTerm == resp.Term && rn.role == Leader {
 				// TODO: Handle the reply
 			} else if rn.currentTerm < resp.Term {
 				rn.currentTerm = resp.Term
-				rn.stepDownAsLeader()
+				rn.revertToFollower()
 			}
 
 		}(args, &peer, &rn.l)
