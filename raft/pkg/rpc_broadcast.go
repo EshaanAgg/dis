@@ -20,7 +20,7 @@ func (rn *RaftNode) sendAppendEntriesMesssage() {
 		go func(args *rpc.AppendEntryInput, peer *PeerClient, l *logger.Logger) {
 			resp, err := peer.AppendEntries(context.Background(), args)
 			if err != nil {
-				l.Printf("Failed to contact Node %d via AppendEntries RPC (%v)", peer.ID, err)
+				l.Debug("Failed to contact Node %d via AppendEntries RPC (%v)", peer.ID, err)
 				return
 			}
 

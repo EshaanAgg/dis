@@ -39,11 +39,11 @@ func getPeerClients(peers []Peer, l *logger.Logger) []PeerClient {
 			// Create a new gRPC client connection to the peer
 			conn, err := grpc.NewClient(peer.Addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
-				l.Printf("Failed to connect to peer '%s': %v", peer.Addr, err)
+				l.Error("Failed to connect to peer '%s': %v", peer.Addr, err)
 				return
 			}
 			client := rpc.NewNodeClient(conn)
-			l.Printf("Connected to peer '%s'", peer.Addr)
+			l.Info("Connected to peer '%s'", peer.Addr)
 
 			mtx.Lock() // Lock the mutex to safely append to the clients slice
 			clients = append(clients, PeerClient{

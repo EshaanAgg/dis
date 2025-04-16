@@ -46,12 +46,12 @@ type RaftNode struct {
 	rpc.UnimplementedNodeServer
 }
 
-func NewRaftNode(nodeID int64, peers []Peer, cfg *Config) *RaftNode {
-	l := logger.NewLogger(fmt.Sprintf("[Node %d] ", nodeID), nodeID)
-	l.Printf("Starting Raft node with ID %d", nodeID)
+func NewRaftNode(nodeID int64, peers []Peer, cfg *Config, logLevel logger.LogLevel) *RaftNode {
+	l := logger.NewLogger(fmt.Sprintf("[Node %d] ", nodeID), nodeID, &logLevel)
+	l.Info("Starting Raft node with ID %d", nodeID)
 
 	clients := getPeerClients(peers, l)
-	l.Printf("Connected to %d peers", len(clients))
+	l.Info("Connected to %d peers", len(clients))
 
 	rn := &RaftNode{
 		NodeID:       nodeID,

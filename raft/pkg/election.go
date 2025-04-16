@@ -38,7 +38,7 @@ func (rn *RaftNode) conductElection() {
 		return
 	}
 
-	rn.l.Printf("Starting election for term %d", rn.currentTerm+1)
+	rn.l.Debug("Starting election for term %d", rn.currentTerm+1)
 
 	// Transition to candidate state
 	rn.currentTerm++
@@ -65,7 +65,7 @@ func (rn *RaftNode) conductElection() {
 			})
 
 			if err != nil {
-				rn.l.Printf("Failed to connect Node %d via RequestVote RPC: (%v)", nodeId, err)
+				rn.l.Debug("Failed to connect Node %d via RequestVote RPC: (%v)", nodeId, err)
 			} else {
 				// Update the current term from the response
 				// and state
@@ -100,13 +100,13 @@ func (rn *RaftNode) conductElection() {
 	rn.mu.Lock()
 
 	if 2*voteCount > len(rn.clients) && rn.role == Candidate {
-		rn.l.Printf("Became the leader: Recieved %d/%d", voteCount, totalCount)
+		rn.l.Info("Became the leader: Recieved %d/%d for term %d", voteCount, totalCount, rn.currentTerm)
 		rn.role = Leader
 		// Send AppendEntries messages to all clients to establish myself as leader
 		rn.sendAppendEntriesMesssage()
 		go rn.leaderHeartbeat()
 	} else {
-		rn.l.Printf("Lost the election: Recieved %d/%d", voteCount, totalCount)
+		rn.l.Info("Lost the election: Recieved %d/%d for term %d", voteCount, totalCount, rn.currentTerm)
 		rn.role = Follower
 	}
 
@@ -144,6 +144,6 @@ func (rn *RaftNode) stepDownAsLeader() {
 		close(rn.stopHeartbeatCh)
 		rn.stopHeartbeatCh = make(chan any)
 
-		rn.l.Printf("Stepped down as leader")
+		rn.l.Info("Stepped down as leader")
 	}
 }

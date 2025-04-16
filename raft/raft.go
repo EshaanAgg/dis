@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/EshaanAgg/dis/raft/pkg"
+	"github.com/EshaanAgg/dis/raft/pkg/logger"
 	"github.com/EshaanAgg/dis/raft/rpc"
 	"google.golang.org/grpc"
 )
@@ -25,7 +26,7 @@ type Raft struct {
 	mu sync.Mutex
 }
 
-func NewRaft(config *Config) *Raft {
+func NewRaft(config *Config, logLevel logger.LogLevel) *Raft {
 	if config.NumberOfNodes <= 0 {
 		log.Fatalf("Number of nodes must be greater than 0")
 	}
@@ -54,7 +55,7 @@ func NewRaft(config *Config) *Raft {
 
 		go func(nodeID, port int, peers []pkg.Peer) {
 			defer wg.Done()
-			server, node := startNode(nodeID, port, peers)
+			server, node := startNode(nodeID, port, peers, logLevel)
 			serverCh <- server
 			nodeCh <- node
 		}(nodeID, port, peers)
@@ -83,8 +84,8 @@ func NewRaft(config *Config) *Raft {
 	}
 }
 
-func startNode(nodeID, port int, peers []pkg.Peer) (*grpc.Server, *pkg.RaftNode) {
-	rn := pkg.NewRaftNode(int64(nodeID), peers, pkg.NewConfig())
+func startNode(nodeID, port int, peers []pkg.Peer, logLevel logger.LogLevel) (*grpc.Server, *pkg.RaftNode) {
+	rn := pkg.NewRaftNode(int64(nodeID), peers, pkg.NewConfig(), logLevel)
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -102,4 +103,11 @@ func startNode(nodeID, port int, peers []pkg.Peer) (*grpc.Server, *pkg.RaftNode)
 	}()
 
 	return grpcServer, rn
+}
+
+// Gracefully stop all gRPC servers
+func (r *Raft) Cleanup() {
+	for _, server := range r.servers {
+		server.GracefulStop()
+	}
 }

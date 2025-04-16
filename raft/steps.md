@@ -19,3 +19,6 @@ Commit: [`16fa3c3fd6d05016a3809c06c87ac5dc41042f11`](https://github.com/EshaanAg
 - Implemented the logic to ensure that the leader is recognised by all the other clients based on the `AppendEntries` RPC.
 - Added channels to kill the goroutines of the elections and the heartbeats when the node is stopped, and implemented a `Shutdown` method on the nodes. Also used a ticker to improve the performance of the elections.
 - Added some utils in the `Raft` structure to simulate network paritions and disconnects, and used them to initialise a basic testing suite. 
+- Implemented the logic for sending periodic heartbeats, with proper logic for starting and killing the go-routine for the same. 
+- Added testing infrastructure, and added some basic test cases to ensure the correctness of leader election.
+- Changed the logger to support multiple levels of logging for more structured output. 

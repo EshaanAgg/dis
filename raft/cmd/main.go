@@ -4,6 +4,7 @@ import (
 	"flag"
 
 	"github.com/EshaanAgg/dis/raft"
+	"github.com/EshaanAgg/dis/raft/pkg/logger"
 )
 
 type Config struct {
@@ -17,7 +18,7 @@ func main() {
 	flag.IntVar(&config.NumberOfNodes, "number-of-nodes", 3, "Number of nodes in the cluster")
 	flag.Parse()
 
-	raft.NewRaft(&config)
+	raft.NewRaft(&config, logger.Info)
 
 	// Keep the main loop running
 	select {}
