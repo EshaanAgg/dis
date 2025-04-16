@@ -22,3 +22,5 @@ Commit: [`16fa3c3fd6d05016a3809c06c87ac5dc41042f11`](https://github.com/EshaanAg
 - Implemented the logic for sending periodic heartbeats, with proper logic for starting and killing the go-routine for the same. 
 - Added testing infrastructure, and added some basic test cases to ensure the correctness of leader election.
 - Changed the logger to support multiple levels of logging for more structured output. 
+  
+Commit: [`6d9c1631877d3d0717b17aae408ffca4626690dd`](https://github.com/EshaanAgg/dis/tree/6d9c1631877d3d0717b17aae408ffca4626690dd/raft)
