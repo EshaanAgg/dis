@@ -47,10 +47,21 @@ func (rt *RaftTest) AssertOneLeaderExcept(nodes ...int) int {
 	leader := rt.AssertOneLeader()
 	for _, n := range nodes {
 		if n == leader {
-			rt.t.Fatalf("Node %d is leader, but it should not be allowed to be", n)
+			rt.t.Fatalf("Node %d is leader, but nodes %v can't be the leader", n, nodes)
 		}
 	}
 	return leader
+}
+
+func (rt *RaftTest) AssertOneLeaderIn(nodes ...int) int {
+	leader := rt.AssertOneLeader()
+	for _, n := range nodes {
+		if n == leader {
+			return leader
+		}
+	}
+	rt.t.Fatalf("The leader is %d, which not is the provided nodes %v", leader, nodes)
+	return -1
 }
 
 // Checks that everyone agrees on the term.

@@ -69,7 +69,7 @@ func TestReElection(t *testing.T) {
 	r.AssertOneLeader()
 
 	// If there's no quorum, no leader should be elected
-	t.Log("...disconnecting all but one server")
+	t.Log("...disconnecting all but server node 2")
 	r.Disconnect(0)
 	r.Disconnect(1)
 	time.Sleep(2 * RaftElectionTimeout)
@@ -78,7 +78,7 @@ func TestReElection(t *testing.T) {
 	// If a quorum arises, it should elect a leader
 	t.Log("...reconnecting one server")
 	r.Connect(0)
-	r.AssertOneLeader()
+	r.AssertOneLeaderIn(0, 2)
 
 	// Re-joining of last node shouldn't prevent leader from existing
 	t.Log("...reconnecting the final node")

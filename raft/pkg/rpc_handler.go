@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/EshaanAgg/dis/raft/rpc"
 )
@@ -9,6 +10,11 @@ import (
 func (rn *RaftNode) RequestVote(ctx context.Context, args *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error) {
 	rn.mu.Lock()
 	defer rn.mu.Unlock()
+
+	// Mock for network outrage: Do not reply if disconnected from the network
+	if rn.disconnected {
+		return nil, fmt.Errorf("the node is unavailable")
+	}
 
 	// If the message is from a newer term, update the current term and reset the votedFor field
 	if args.Term > rn.currentTerm {
@@ -40,6 +46,11 @@ func (rn *RaftNode) RequestVote(ctx context.Context, args *rpc.RequestVoteInput)
 func (rn *RaftNode) AppendEntries(ctx context.Context, args *rpc.AppendEntryInput) (*rpc.AppendEntryOutput, error) {
 	rn.mu.Lock()
 	defer rn.mu.Unlock()
+
+	// Mock for network outrage: Do not reply if disconnected from the network
+	if rn.disconnected {
+		return nil, fmt.Errorf("the node is unavailable")
+	}
 
 	// If from a previous term, deny the request
 	if args.Term < rn.currentTerm {

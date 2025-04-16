@@ -14,7 +14,7 @@ type Config struct {
 func NewConfig() *Config {
 	return &Config{
 		MinimumElectionTimeout: 300 * time.Millisecond,
-		MaximumElectionTimeout: 400 * time.Millisecond,
+		MaximumElectionTimeout: 500 * time.Millisecond,
 		HeartbeatTimeout:       50 * time.Millisecond,
 	}
 }

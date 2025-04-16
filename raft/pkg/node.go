@@ -14,11 +14,12 @@ type RaftNode struct {
 	NodeID int64
 
 	// Internal variables used for synchronization and communication between nodes
-	mu      sync.Mutex
-	peers   []Peer
-	clients []PeerClient
-	l       logger.Logger
-	cfg     *Config
+	mu           sync.Mutex
+	peers        []Peer
+	clients      []PeerClient
+	l            logger.Logger
+	cfg          *Config
+	disconnected bool // Used to mock disconnections from the network
 
 	// Persistent state
 	currentTerm int64
@@ -47,10 +48,12 @@ func NewRaftNode(nodeID int64, peers []Peer, cfg *Config, logLevel logger.LogLev
 	l.Info("Starting Raft node with ID %d", nodeID)
 
 	rn := &RaftNode{
-		NodeID: nodeID,
-		l:      *l,
-		mu:     sync.Mutex{},
-		cfg:    cfg,
+		NodeID:       nodeID,
+		l:            *l,
+		mu:           sync.Mutex{},
+		cfg:          cfg,
+		disconnected: false,
+		peers:        peers,
 	}
 
 	rn.setPeerClients()
@@ -63,6 +66,7 @@ func NewRaftNode(nodeID int64, peers []Peer, cfg *Config, logLevel logger.LogLev
 // Initializes the state of the node when it is first starting up after a crash.
 // Responsible for handling loading of state from the stable medium, and kicking off the
 // appropiate election go-routines.
+// The caller must hold the lock on the mutex (if needed).
 func (rn *RaftNode) resetState() {
 	// TODO: Inialize properly from stable storage
 	// Persistent state
@@ -100,28 +104,23 @@ func (rn *RaftNode) GetState() (int64, bool) {
 	return rn.currentTerm, rn.role == Leader
 }
 
-// Shutdown stops the node
-func (rn *RaftNode) Shutdown() {
+// Sets the disconnected state of the node
+func (rn *RaftNode) SetDisconnected(shouldDisconnect bool) {
 	rn.mu.Lock()
 	defer rn.mu.Unlock()
 
-	rn.revertToFollower()
-	(*rn.stopElectionCancel)()
-
-	// Close client connections
-	for _, client := range rn.clients {
-		client.conn.Close()
+	if rn.disconnected == shouldDisconnect {
+		return
 	}
-}
 
-// Sets the disconnected state of the node
-func (rn *RaftNode) SetDisconnected(disconnected bool) {
-	if disconnected {
-		rn.Shutdown()
+	if shouldDisconnect {
+		// Need to disconnect by shutting down the node
+		rn.disconnected = true
+		rn.revertToFollower()
+		(*rn.stopElectionCancel)()
 	} else {
-		for _, client := range rn.clients {
-			client.conn.Connect()
-		}
+		// Need to re-initialize the node as if the same is joining the network
+		rn.disconnected = false
 		rn.resetState()
 	}
 }
