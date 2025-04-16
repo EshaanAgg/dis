@@ -18,6 +18,12 @@ type RaftNode struct {
 	l       logger.Logger
 	cfg     *Config
 
+	// Stores if the node has been disconnected from the network. This would not be
+	// present in an actual implementation, and we would not need to have checks related
+	// to being disconnected in the source code. But we need to have them here, so that
+	// we can simulate network partitions and failures in the tests.
+	disconnected bool
+
 	// Persistent state
 	currentTerm int64
 	votedFor    *int64
@@ -33,6 +39,10 @@ type RaftNode struct {
 	matchIndex       []int
 	nextElectionTime time.Time
 
+	// Channels for stopping election and heartbeat goroutines
+	stopElectionCh  chan any
+	stopHeartbeatCh chan any
+
 	rpc.UnimplementedNodeServer
 }
 
@@ -41,14 +51,15 @@ func NewRaftNode(nodeID int64, peers []Peer, cfg *Config) *RaftNode {
 	l.Printf("Starting Raft node with ID %d", nodeID)
 
 	clients := getPeerClients(peers, l)
-	l.Printf("Connected to [%d] peers", len(clients))
+	l.Printf("Connected to %d peers", len(clients))
 
 	rn := &RaftNode{
-		NodeID:  nodeID,
-		l:       *l,
-		clients: clients,
-		mu:      sync.Mutex{},
-		cfg:     cfg,
+		NodeID:       nodeID,
+		l:            *l,
+		clients:      clients,
+		mu:           sync.Mutex{},
+		cfg:          cfg,
+		disconnected: false,
 
 		// Persistent state
 		// TODO: Inialize properly from stable storage
@@ -77,4 +88,40 @@ func (rn *RaftNode) getLastLogTerm() int64 {
 		lastTerm = rn.log[len(rn.log)-1].Term
 	}
 	return lastTerm
+}
+
+// Returns the currentTerm and if the current node is the leader
+func (rn *RaftNode) GetState() (int64, bool) {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+	return rn.currentTerm, rn.role == Leader
+}
+
+// Shutdown stops the node
+func (rn *RaftNode) Shutdown() {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+
+	close(rn.stopElectionCh)
+	close(rn.stopHeartbeatCh)
+	rn.disconnected = true
+
+	// Close client connections
+	for _, client := range rn.clients {
+		client.conn.Close()
+	}
+}
+
+// Sets the disconnected state of the node
+func (rn *RaftNode) SetDisconnected(disconnected bool) {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+	rn.disconnected = disconnected
+}
+
+// Returns whether the node is disconnected
+func (rn *RaftNode) IsDisconnected() bool {
+	rn.mu.Lock()
+	defer rn.mu.Unlock()
+	return rn.disconnected
 }

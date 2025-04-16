@@ -14,6 +14,8 @@ Commit: [`282770c3b97d8c681d3244ec56f80fde39d6f56a`](https://github.com/EshaanAg
 
 Commit: [`16fa3c3fd6d05016a3809c06c87ac5dc41042f11`](https://github.com/EshaanAgg/dis/tree/16fa3c3fd6d05016a3809c06c87ac5dc41042f11/raft)
 
-- Implemented the logic to start elections and request for votes using the `RequestVote` RPC
-- Added go routine to kick of elections at random delays for repeated elections
-- Implemented the logic to ensure that the leader is recognised by all the other clients based on the `AppendEntries` RPC
+- Implemented the logic to start elections and request for votes using the `RequestVote` RPC.
+- Added go routine to kick of elections at random delays for repeated elections.
+- Implemented the logic to ensure that the leader is recognised by all the other clients based on the `AppendEntries` RPC.
+- Added channels to kill the goroutines of the elections and the heartbeats when the node is stopped, and implemented a `Shutdown` method on the nodes. Also used a ticker to improve the performance of the elections.
+- Added some utils in the `Raft` structure to simulate network paritions and disconnects, and used them to initialise a basic testing suite. 

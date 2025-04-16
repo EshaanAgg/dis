@@ -10,14 +10,21 @@ import (
 
 // A goroutine that periodically checks if an election needs to be conducted
 func (rn *RaftNode) checkElection() {
-	for {
-		rn.mu.Lock()
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
 
-		if rn.role == Follower && time.Now().After(rn.nextElectionTime) {
-			rn.mu.Unlock()
-			rn.conductElection()
-		} else {
-			rn.mu.Unlock()
+	for {
+		select {
+		case <-rn.stopElectionCh:
+			return
+		case <-ticker.C:
+			rn.mu.Lock()
+			if !rn.disconnected && rn.role != Leader && time.Now().After(rn.nextElectionTime) {
+				rn.mu.Unlock()
+				rn.conductElection()
+			} else {
+				rn.mu.Unlock()
+			}
 		}
 	}
 }

@@ -17,9 +17,12 @@ type Config struct {
 }
 
 type Raft struct {
-	cfg     *Config
-	servers []*grpc.Server
-	nodes   []*pkg.RaftNode
+	cfg       *Config
+	servers   []*grpc.Server
+	nodes     []*pkg.RaftNode
+	connected []bool
+
+	mu sync.Mutex
 }
 
 func NewRaft(config *Config) *Raft {
@@ -34,12 +37,12 @@ func NewRaft(config *Config) *Raft {
 	nodeCh := make(chan *pkg.RaftNode, config.NumberOfNodes)
 	var wg sync.WaitGroup
 
-	for nodeID := 0; nodeID < config.NumberOfNodes; nodeID++ {
+	for nodeID := range config.NumberOfNodes {
 		wg.Add(1)
 		port := config.StartPort + nodeID
 
 		peers := make([]pkg.Peer, 0, config.NumberOfNodes-1)
-		for i := 0; i < config.NumberOfNodes; i++ {
+		for i := range config.NumberOfNodes {
 			if i == nodeID {
 				continue
 			}
@@ -60,6 +63,7 @@ func NewRaft(config *Config) *Raft {
 	// Wait for all servers to be added
 	wg.Wait()
 	close(serverCh)
+	close(nodeCh)
 
 	servers := make([]*grpc.Server, 0, config.NumberOfNodes)
 	for server := range serverCh {
@@ -72,9 +76,10 @@ func NewRaft(config *Config) *Raft {
 	}
 
 	return &Raft{
-		cfg:     config,
-		servers: servers,
-		nodes:   nodes,
+		cfg:       config,
+		servers:   servers,
+		nodes:     nodes,
+		connected: make([]bool, config.NumberOfNodes),
 	}
 }
 
