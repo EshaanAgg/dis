@@ -21,13 +21,13 @@ func NewConfig() *Config {
 
 func (c *Config) GetElectionTimeout() time.Duration {
 	// Randomly select a timeout between the minimum and maximum election timeout
-	// so that all the nodes do not timeout at the same time
+	// so that all the nodes do not timeout at the same time.
 	electionRange := c.MaximumElectionTimeout - c.MinimumElectionTimeout
 	return c.MinimumElectionTimeout + time.Duration(rand.Int63n(int64(electionRange)))
 }
 
-// Updates the next election time for the node
-// The lock on the node must be held by the caller
+// Updates the next election time for the node.
+// The lock on the node must be held by the caller.
 func (rn *RaftNode) updateElectionTime() {
 	rn.nextElectionTime = time.Now().Add(rn.cfg.GetElectionTimeout())
 }

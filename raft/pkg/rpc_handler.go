@@ -19,8 +19,7 @@ func (rn *RaftNode) RequestVote(ctx context.Context, args *rpc.RequestVoteInput)
 	// If the message is from a newer term, update the current term and reset the votedFor field
 	if args.Term > rn.currentTerm {
 		rn.currentTerm = args.Term
-		rn.votedFor = nil
-		rn.role = Follower
+		rn.stepDownAsLeader()
 	}
 
 	// Check that the candidate's log is at least as up-to-date as the receiver's log
@@ -63,6 +62,7 @@ func (rn *RaftNode) AppendEntries(ctx context.Context, args *rpc.AppendEntryInpu
 
 	// Become a follower since the leader is known and update the timeout
 	rn.role = Follower
+	rn.votedFor = nil
 	rn.currentTerm = args.Term
 	rn.updateElectionTime()
 

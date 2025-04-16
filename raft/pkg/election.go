@@ -19,7 +19,7 @@ func (rn *RaftNode) checkElection() {
 			return
 		case <-ticker.C:
 			rn.mu.Lock()
-			if !rn.disconnected && rn.role != Leader && time.Now().After(rn.nextElectionTime) {
+			if !rn.disconnected && rn.role == Follower && time.Now().After(rn.nextElectionTime) {
 				rn.mu.Unlock()
 				rn.conductElection()
 			} else {
@@ -56,7 +56,6 @@ func (rn *RaftNode) conductElection() {
 	logTerm := rn.getLastLogTerm()
 
 	for _, peer := range rn.clients {
-
 		go func(nodeId int64, currentTerm int64, logLength int64, lastLogTerm int64, peer *PeerClient) {
 			reply, err := peer.RequestVote(context.Background(), &rpc.RequestVoteInput{
 				Term:        currentTerm,
@@ -87,7 +86,6 @@ func (rn *RaftNode) conductElection() {
 			cond.Broadcast()
 
 		}(peer.ID, rn.currentTerm, logLen, logTerm, &peer)
-
 	}
 
 	rn.mu.Unlock()
@@ -106,10 +104,46 @@ func (rn *RaftNode) conductElection() {
 		rn.role = Leader
 		// Send AppendEntries messages to all clients to establish myself as leader
 		rn.sendAppendEntriesMesssage()
+		go rn.leaderHeartbeat()
 	} else {
 		rn.l.Printf("Lost the election: Recieved %d/%d", voteCount, totalCount)
 		rn.role = Follower
 	}
 
 	rn.mu.Unlock()
+}
+
+// Continuously send heartbeats when in leader state.
+func (rn *RaftNode) leaderHeartbeat() {
+	ticker := time.NewTicker(rn.cfg.HeartbeatTimeout)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-rn.stopHeartbeatCh:
+			return
+		case <-ticker.C:
+			rn.mu.Lock()
+			if rn.role == Leader && !rn.disconnected {
+				rn.sendAppendEntriesMesssage()
+			}
+			rn.mu.Unlock()
+		}
+	}
+}
+
+// Step down as leader and become a follower.
+// The caller must hold the lock on the mutex before calling this function.
+func (rn *RaftNode) stepDownAsLeader() {
+	if rn.role == Leader {
+		rn.role = Follower
+		rn.votedFor = nil
+		rn.updateElectionTime()
+
+		// Stop the heartbeat goroutine
+		close(rn.stopHeartbeatCh)
+		rn.stopHeartbeatCh = make(chan any)
+
+		rn.l.Printf("Stepped down as leader")
+	}
 }
